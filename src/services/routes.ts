@@ -1,3 +1,5 @@
+import SystemSettings from "@/pages/systemseting/systemsetingFrom";
+
 export const ROUTES = {
   auth: {
     login: "/auth/login",
@@ -71,24 +73,6 @@ export const ROUTES = {
     delete: (id: string) => `/product-labels/${id}`,
     bulkDelete: "/product-labels/bulk-delete",
   },
-  // colors: {
-  //   getAll: "/colors",
-  //   getById: (id: string) => `/colors/${id}`,
-  //   create: "/colors",
-  //   update: (id: string) => `/colors/${id}`,
-  //   updateStatus: (id: string) => `/colors/${id}/status`,
-  //   delete: (id: string) => `/colors/${id}`,
-  //   bulkDelete: "/colors/bulk-delete",
-  // },
-  // sizes: {
-  //   getAll: "/sizes",
-  //   getById: (id: string) => `/sizes/${id}`,
-  //   create: "/sizes",
-  //   update: (id: string) => `/sizes/${id}`,
-  //   updateStatus: (id: string) => `/sizes/${id}/status`,
-  //   delete: (id: string) => `/sizes/${id}`,
-  //   bulkDelete: "/sizes/bulk-delete",
-  // },
   upload: {
     image: "/uploads/image",
   },
@@ -281,5 +265,19 @@ export const ROUTES = {
     update: (id: string) => `/emails/${id}`,
     delete: (id: string) => `/emails/${id}`,
     bulkDelete: "/emails/bulk-delete",
+  },
+  slider: {
+    getAll: "/slide",
+    getById: (id: string) => `/slide/${id}`,
+    create: "/slide",
+    update: (id: string) => `/slide/${id}`,
+    updateStatus: (id: string) => `/slide/${id}/status`,
+    delete: (id: string) => `/slide/${id}`,
+    bulkDelete: "/slide/bulk-delete",
+  },
+
+  SystemSettings: {
+    get: "/system-setting",
+    update: "/system-setting",
   },
 };

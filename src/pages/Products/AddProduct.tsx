@@ -36,6 +36,7 @@ import { Action } from "@radix-ui/react-toast";
 const SECTION_TYPES = [
   "Select your scalp type",
   "Select your age",
+  "Select your concern",
   "Root Cause Section",
   "How Does It Do It Section",
   "Benefits Section",
@@ -49,6 +50,7 @@ const SECTION_TYPES = [
 const ITEM_LIST_SECTIONS = [
   "Select your scalp type",
   "Root Cause Section",
+  "Select your concern",
   "Select your age",
   "Benefits Section",
   "Ingredients Section",
@@ -257,7 +259,6 @@ export default function ProductFormPage() {
     } else {
       updated[idx].data.items.push({ name: "", description: "", image: "" });
     }
-
     setSections(updated);
   };
 
@@ -267,7 +268,6 @@ export default function ProductFormPage() {
     setSections(updated);
   };
 
-
   const updateSectionItem = (sectionIdx: number, itemIdx: number, field: string, value: any) => {
     const updated = [...sections];
     updated[sectionIdx].data.items[itemIdx][field] = value;
@@ -276,11 +276,9 @@ export default function ProductFormPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
     if (!name.trim()) return toast.error("Product Name is required");
     if (!categoryId) return toast.error("Category is required");
     if (variants.length === 0) return toast.error("Add at least one variant");
-
     for (let i = 0; i < variants.length; i++) {
       const v = variants[i];
       if (!v.brand_id ||
@@ -298,7 +296,6 @@ export default function ProductFormPage() {
         return toast.error(`All fields are required for variant ${i + 1}`);
       }
     }
-
     const payload = {
       name,
       description,
@@ -310,7 +307,6 @@ export default function ProductFormPage() {
       variants,
       sections,
     };
-
     try {
       let result;
       if (isEditMode && id) {
@@ -318,7 +314,6 @@ export default function ProductFormPage() {
       } else {
         result = await dispatch(createProduct(payload));
       }
-
       if (
         createProduct.fulfilled.match(result) ||
         updateProduct.fulfilled.match(result)
@@ -410,7 +405,6 @@ export default function ProductFormPage() {
               </Select>
             </div>
 
-
             <div>
               <Label>Product Images</Label>
               <ImageUpload
@@ -427,7 +421,6 @@ export default function ProductFormPage() {
                 multiple
               />
             </div>
-
             <div className="flex items-center justify-between mt-2">
               <Label htmlFor="status">Active</Label>
               <Switch id="status" checked={status} onCheckedChange={setStatus} />
@@ -438,15 +431,12 @@ export default function ProductFormPage() {
         <Card className="shadow-md border border-gray-200">
           <CardHeader className="flex justify-between items-center">
             <CardTitle className="text-lg font-semibold">Variants</CardTitle>
-
           </CardHeader>
           <CardContent className="space-y-4">
             {variants.map((v, idx) => (
               <div key={idx} className="p-4 border rounded space-y-3 relative">
-
                 <div>
                   <CardTitle className="text-lg font-semibold">Variant ({idx + 1})</CardTitle>
-
                   <Button
                     type="button"
                     variant="destructive"
@@ -456,7 +446,6 @@ export default function ProductFormPage() {
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
-
                 <div className="col-span-2 flex items-center justify-between mt-2">
                   <Label htmlFor={`variant-status-${idx}`}>Status</Label>
                   <Switch
@@ -467,7 +456,6 @@ export default function ProductFormPage() {
                     }
                   />
                 </div>
-
                 <div className="grid grid-cols-3 gap-3">
                   <div>
                     <Label>Brand *</Label>
@@ -501,7 +489,6 @@ export default function ProductFormPage() {
                       </SelectContent>
                     </Select>
                   </div>
-
                   <div>
                     <Label>Price *</Label>
                     <Input
@@ -526,7 +513,6 @@ export default function ProductFormPage() {
                       onChange={(e) => handleVariantChange(idx, "sku", e.target.value)}
                     />
                   </div>
-
                   <div>
                     <Label>offer Price *</Label>
                     <Input
@@ -602,11 +588,8 @@ export default function ProductFormPage() {
                       onChange={(e) => handleVariantChange(idx, "ProductWeight", e.target.value)}
                     />
                   </div>
-
                 </div>
-
                 <div className="grid grid-cols-2 gap-3">
-
                   <div>
                     <Label>Description (Variant {idx + 1})</Label>
                     <TiptapEditor
@@ -618,7 +601,6 @@ export default function ProductFormPage() {
                     <Label>How To Use Steps  (Variant {idx + 1})</Label>
                     <TiptapEditor value={v.steps} onChange={(val) => handleVariantChange(idx, "steps", val)} />
                   </div>
-
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="flex flex-wrap gap-6 mt-4 col-span-2">
@@ -644,7 +626,6 @@ export default function ProductFormPage() {
                       />
                     </div>
                   </div>
-
                   <div className="col-span-2">
                     <Label>Variant Images</Label>
                     <ImageUpload
@@ -653,7 +634,6 @@ export default function ProductFormPage() {
                       multiple
                     />
                   </div>
-
                   <div className="col-span-2">
                     <Label>Variant Labels</Label>
                     <div className="flex flex-wrap gap-2 mt-1">
@@ -683,7 +663,6 @@ export default function ProductFormPage() {
                 </div>
               </div>
             ))}
-
             <div className="flex justify-center">
               <Button type="button" onClick={addVariant}>
                 Add Variant
@@ -691,13 +670,11 @@ export default function ProductFormPage() {
             </div>
           </CardContent>
         </Card>
-
         <Card className="shadow-md border border-gray-200">
           <CardHeader className="flex flex-col justify-center items-center">
             <CardTitle className="text-lg font-semibold">Page Section Builder</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-
             {sections.map((section, idx) => (
               <div key={idx} className="p-4 border rounded-lg space-y-4">
 
@@ -720,13 +697,11 @@ export default function ProductFormPage() {
 
                 <div className="flex items-center justify-between gap-3">
                   <Label>{section.type} Status</Label>
-
                   <Switch
                     checked={section.data.status !== false}
                     onCheckedChange={(val) => updateSectionField(idx, "status", val)}
                   />
                 </div>
-
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <Label>Title</Label>
@@ -746,10 +721,8 @@ export default function ProductFormPage() {
                   </div>
                 </div>
 
-
                 {ITEM_LIST_SECTIONS.includes(section.type) && (
                   <div className="space-y-3">
-
                     {(section.data.items || []).map((item: any, itemIdx: number) => (
                       <div key={itemIdx} className="p-3 border rounded-lg bg-white space-y-3">
                         <div className="flex justify-between items-center">
@@ -768,7 +741,6 @@ export default function ProductFormPage() {
                             🗑
                           </Button>
                         </div>
-
                         <div className="grid grid-cols-3 gap-3">
                           {section.type === "use and Others points" ? (
                             <>
@@ -808,6 +780,7 @@ export default function ProductFormPage() {
                                 />
                               </div>
                               {(section.type === "Select your scalp type" ||
+                                section.type === "Select your concern" ||
                                 section.type === "Select your age") && (
                                   <div>
                                     <Label>Link Product</Label>

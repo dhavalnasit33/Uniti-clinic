@@ -90,7 +90,13 @@ const adminSections = [
     label: "Pages",
     items: [
       { title: "Faqs", url: "/faqs", icon: Columns },
-      { title: "Result", url: "results", icon: Columns },
+      { title: "Result", url: "/results", icon: Columns },
+    ]
+  },
+  {
+    label: "sliders",
+    items: [
+      { title: "sliders", url: "/slider", icon: Columns },
     ]
   },
   {
@@ -107,6 +113,7 @@ const adminSections = [
       { title: "Footer", url: "/footer", icon: Columns },
       { title: "Contact Messages", url: "/contact-messages", icon: MessageSquare },
       { title: "Settings", url: "/settings", icon: Settings },
+      { title: "System Settings", url: "/system_settings", icon: Settings },
     ],
   },
 ];
@@ -127,7 +134,6 @@ const storeOwnerSections = [
       { title: "Types", url: "/store_owner/types", icon: Shirt },
       { title: "Product Labels", url: "/store_owner/product-labels", icon: Tags },
       { title: "Products", url: "/store_owner/products", icon: Package },
-
     ],
   },
   {
@@ -158,15 +164,19 @@ const storeOwnerSections = [
     label: "Pages",
     items: [
       { title: "Faqs", url: "/store_owner/faqs", icon: Columns },
-      { title: "Result", url: "results", icon: Columns },
-
-
+      { title: "Result", url: "/store_owner/results", icon: Columns },
+    ]
+  },
+  {
+    label: "slider",
+    items: [
+      { title: "sliders", url: "/store_owner/slider", icon: Columns },
     ]
   },
   {
     label: "E-Mail",
     items: [
-      { title: "Email", url: "/emails", icon: Navigation }
+      { title: "Email", url: "/store_owner/emails", icon: Navigation }
     ]
   },
   {
@@ -177,6 +187,7 @@ const storeOwnerSections = [
       { title: "Footer", url: "/store_owner/footer", icon: Columns },
       { title: "Contact Messages", url: "/store_owner/contact-messages", icon: MessageSquare },
       { title: "Settings", url: "/store_owner/settings", icon: Settings },
+      { title: "System Settings", url: "/store_owner/system_settings", icon: Settings },
     ],
   },
 ];

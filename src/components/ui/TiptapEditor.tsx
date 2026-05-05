@@ -141,10 +141,8 @@ export function TiptapEditor({
 
   return (
     <div className="border border-gray-300 rounded-md bg-white">
-      {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-2 border-b border-gray-300 p-2 bg-gray-50 sticky top-0 z-50">
 
-        {/* Heading dropdown */}
         <div className="relative">
           <button
             type="button"
@@ -184,7 +182,6 @@ export function TiptapEditor({
           )}
         </div>
 
-        {/* Bold */}
         <button
           type="button"
           onClick={() => editor.chain().focus().toggleBold().run()}
@@ -194,7 +191,6 @@ export function TiptapEditor({
           <Bold className="w-4 h-4" />
         </button>
 
-        {/* Italic */}
         <button
           type="button"
           onClick={() => editor.chain().focus().toggleItalic().run()}
@@ -204,7 +200,6 @@ export function TiptapEditor({
           <Italic className="w-4 h-4" />
         </button>
 
-        {/* Underline */}
         <button
           type="button"
           onClick={() => editor.chain().focus().toggleUnderline().run()}
@@ -214,7 +209,6 @@ export function TiptapEditor({
           <UnderlineIcon className="w-4 h-4" />
         </button>
 
-        {/* Text Color */}
         <div className="relative">
           <button
             type="button"
@@ -261,7 +255,6 @@ export function TiptapEditor({
           )}
         </div>
 
-        {/* Highlight */}
         <div className="relative">
           <button
             type="button"
@@ -316,7 +309,6 @@ export function TiptapEditor({
           )}
         </div>
 
-        {/* Bullet List */}
         <button
           type="button"
           onClick={() => editor.chain().focus().toggleBulletList().run()}
@@ -326,7 +318,6 @@ export function TiptapEditor({
           <List className="w-4 h-4" />
         </button>
 
-        {/* Ordered List */}
         <button
           type="button"
           onClick={() => editor.chain().focus().toggleOrderedList().run()}
@@ -336,7 +327,6 @@ export function TiptapEditor({
           <ListOrdered className="w-4 h-4" />
         </button>
 
-        {/* Table */}
         <div className="relative">
           <button
             type="button"
@@ -367,7 +357,6 @@ export function TiptapEditor({
           )}
         </div>
 
-        {/* Table Controls */}
         {editor.isActive("table") && (
           <>
             <button type="button" onClick={() => editor.chain().focus().addColumnBefore().run()} className={buttonBase} title="Add Column Before">+Col←</button>
@@ -380,7 +369,6 @@ export function TiptapEditor({
           </>
         )}
 
-        {/* Blockquote */}
         <button
           type="button"
           onClick={() => editor.chain().focus().toggleBlockquote().run()}
@@ -390,7 +378,6 @@ export function TiptapEditor({
           <Quote className="w-4 h-4" />
         </button>
 
-        {/* Code Block */}
         <button
           type="button"
           onClick={() => editor.chain().focus().toggleCodeBlock().run()}
@@ -400,7 +387,6 @@ export function TiptapEditor({
           <Code2 className="w-4 h-4" />
         </button>
 
-        {/* Horizontal Rule */}
         <button
           type="button"
           onClick={() => editor.chain().focus().setHorizontalRule().run()}
@@ -410,7 +396,6 @@ export function TiptapEditor({
           <Minus className="w-4 h-4" />
         </button>
 
-        {/* Link */}
         <button
           type="button"
           onClick={() => {
@@ -425,7 +410,6 @@ export function TiptapEditor({
           <Link2 className="w-4 h-4" />
         </button>
 
-        {/* Undo */}
         <button
           type="button"
           onClick={() => editor.chain().focus().undo().run()}
@@ -436,7 +420,6 @@ export function TiptapEditor({
           <Undo className="w-4 h-4" />
         </button>
 
-        {/* Redo */}
         <button
           type="button"
           onClick={() => editor.chain().focus().redo().run()}
@@ -447,7 +430,6 @@ export function TiptapEditor({
           <Redo className="w-4 h-4" />
         </button>
 
-        {/* Image Upload */}
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
@@ -468,10 +450,9 @@ export function TiptapEditor({
         />
       </div>
 
-      {/* Editor Content */}
       <EditorContent
         editor={editor}
-        className="p-3 prose max-w-none
+        className="p-3 prose max-w-none overflow-y-auto h-[400px]
         [&_pre]:bg-gray-200 [&_pre]:text-gray-600 [&_pre]:p-3 [&_pre]:rounded-md [&_pre]:font-mono
         [&_table]:border-collapse [&_table]:border [&_table]:border-gray-400 [&_table]:w-full
         [&_th]:border [&_th]:border-gray-300 [&_th]:px-4 [&_th]:py-2 [&_th]:bg-gray-100 [&_th]:font-bold
@@ -481,5 +462,4 @@ export function TiptapEditor({
   );
 }
 
-// React/Vite ma dynamic import nathi hotu - direct export karo
 export const TiptapEditorNoSSR = TiptapEditor;

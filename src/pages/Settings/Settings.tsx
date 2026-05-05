@@ -13,7 +13,6 @@ import { AppDispatch } from "@/store";
 import { ImageUpload } from "@/components/ui/ImageUpload";
 import { fetchSettings, updateSettings } from "@/features/settings/settingsThunk";
 import { fetchMyStore, updateMyStore } from "@/features/stores/storesThunk";
-
 export default function Settings() {
   const dispatch = useDispatch<AppDispatch>();
   const { toast } = useToast();
@@ -53,8 +52,10 @@ export default function Settings() {
   const [metaKeyphrase, setMetaKeyphrase] = useState("");
   const [seoImage, setSeoImage] = useState<string | null>(null);
   const [socialLinks, setSocialLinks] = useState<{ platform: string; url: string }[]>([]);
-  // const [customCss, setCustomCss] = useState("");
-  // const [customJs, setCustomJs] = useState("");
+  // const [razorpaykey, setrazorpaykey] = useState("")
+  // const [razorpaysecretkey, setrezorpaysecretkey] = useState("")
+  // const [showSecret, setShowSecret] = useState(false);
+
   useEffect(() => {
     dispatch(fetchMe()).then((res: any) => {
       if (res.payload?.user) {
@@ -97,7 +98,6 @@ export default function Settings() {
           setFavicon(s.theme.faviconUrl || null);
           setPrimaryColor(s.theme.primaryColor || "#000000");
           setSecondaryColor(s.theme.secondaryColor || "#ffffff");
-          // setButtonColor(s.theme.buttonColor || "#007bff");
           setFontFamily(s.theme.fontFamily || "");
           setFooterText(s.theme.footerText || "");
           setCopyrightText(s.theme.copyrightText || "");
@@ -114,10 +114,6 @@ export default function Settings() {
   }, [dispatch]);
   useEffect(() => {
     dispatch(fetchSettings()).then((res: any) => {
-      // if (res.payload) {
-      //   setCustomCss(res.payload.custom_css || "");
-      //   setCustomJs(res.payload.custom_js || "");
-      // }
     });
   }, [dispatch]);
   const handleSaveProfile = async () => {
@@ -142,7 +138,6 @@ export default function Settings() {
         faviconUrl: favicon,
         primaryColor,
         secondaryColor,
-        // buttonColor,
         fontFamily,
         footerText,
         copyrightText,
@@ -204,6 +199,16 @@ export default function Settings() {
     updated[i][key] = val;
     setSocialLinks(updated);
   };
+
+
+
+  // const toggleVisibility = () => {
+  //   setShowSecret(!showSecret);
+  // };
+
+
+
+
   return (
     <div className="space-y-6">
       <div>
@@ -211,7 +216,7 @@ export default function Settings() {
         <p className="text-muted-foreground">Manage your store configuration and preferences</p>
       </div>
       <Tabs defaultValue="general" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="general" className="gap-2">
             <SettingsIcon className="h-4 w-4" /> General
           </TabsTrigger>
@@ -221,6 +226,7 @@ export default function Settings() {
           <TabsTrigger value="contact">Contact</TabsTrigger>
           <TabsTrigger value="social">Social Links</TabsTrigger>
           <TabsTrigger value="seo">SEO</TabsTrigger>
+          {/* <TabsTrigger value="payment">payment Link</TabsTrigger> */}
         </TabsList>
         <TabsContent value="general">
           <div className="grid gap-6 lg:grid-cols-2">
@@ -229,7 +235,7 @@ export default function Settings() {
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <Label>Profile Picture</Label>
-                  <ImageUpload value={profilePic} onChange={(v) => setProfilePic(v as string | null)}  className="w-10 h-10 "/>
+                  <ImageUpload value={profilePic} onChange={(v) => setProfilePic(v as string | null)} className="w-10 h-10 " />
                 </div>
                 <div className="space-y-2">
                   <Label>Full Name</Label>
@@ -455,6 +461,50 @@ export default function Settings() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* <TabsContent value="payment">
+          <Card>
+            <CardHeader>
+              <CardTitle>Payment Link</CardTitle>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label>Razorpay Key Id</Label>
+                    <Input value={razorpaykey} onChange={(e) => setrazorpaykey(e.target.value)} />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Razorpay Secret Key</Label>
+                    <div className="relative">
+                      <Input
+                        id="razorpay-key"
+                        type={showSecret ? "text" : "password"}
+                        value={razorpaysecretkey}
+                        onChange={(e) => setrezorpaysecretkey(e.target.value)}
+                      />
+                      <button
+                        type="button"
+                        onClick={toggleVisibility}
+                        className="absolute inset-y-0 right-0 flex items-center justify-center w-10 text-gray-500 hover:text-gray-700 transition-colors border-l border-gray-300"
+                        aria-label={showSecret ? "Hide password" : "Show password"}
+                      >
+                        {showSecret ? (
+                          <EyeOff className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+
+
+                </div>
+
+              </CardContent>
+            </CardHeader>
+          </Card>
+        </TabsContent> */}
       </Tabs>
     </div>
   );
