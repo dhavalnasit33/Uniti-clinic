@@ -1,10 +1,8 @@
-//D:\mycara\admin-panal\src\features\categories\categoriesThunk.ts
 
 import { createAsyncThunk } from "@reduxjs/toolkit";
 import api from "../../services/api";
 import { ROUTES } from "../../services/routes";
 
-// Fetch categories with pagination and search
 export const fetchsubCategories = createAsyncThunk(
   "subcategories/fetchsubCategories",
   async (
@@ -12,7 +10,6 @@ export const fetchsubCategories = createAsyncThunk(
     { rejectWithValue }
   ) => {
     try {
-      // Default isDownload to false
       const { isDownload = false, ...query } = params;
 
       const res = await api.get(ROUTES.subcategories.getAll, {

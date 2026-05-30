@@ -12,7 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { ThemeToggle } from "@/components/ui/theme-toggle";
+// import { ThemeToggle } from "@/components/ui/theme-toggle";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -38,7 +38,7 @@ const getBreadcrumbs = (pathname: string) => {
     types: "Product Types",
     fabrics: "Fabrics",
     "product-labels": "Product Labels",
-    discounts: "Discounts",
+    // discounts: "Discounts",
     coupons: "Coupons",
     orders: "Orders",
     payments: "Payments",
@@ -91,7 +91,7 @@ export function AdminHeader() {
         </div>
 
         <div className="flex items-center gap-2">
-          <ThemeToggle />
+          {/* <ThemeToggle /> */}
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

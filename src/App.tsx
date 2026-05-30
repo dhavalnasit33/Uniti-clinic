@@ -5,7 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AdminLayout } from "./components/layout/AdminLayout";
-// import Register from "./pages/Register";
+import Register from "./pages/Register";
 import VelzonDashboard from "./pages/VelzonDashboard";
 import Products from "./pages/Products/Products";
 import AddProduct from "./pages/Products/AddProduct";
@@ -21,8 +21,8 @@ import TypeFormPage from "./pages/Types/TypeForm";
 import Types from "./pages/Types/Types";
 import ProductLabels from "./pages/ProductLabels/ProductLabels";
 import ProductLabelFormPage from "./pages/ProductLabels/ProductLabelForm";
-import Discounts from "./pages/Discount/Discounts";
-import DiscountFormPage from "./pages/Discount/DiscountForm";
+// import Discounts from "./pages/Discount/Discounts";
+// import DiscountFormPage from "./pages/Discount/DiscountForm";
 import CouponFormPage from "./pages/coupons/CouponForm";
 import CouponsPage from "./pages/coupons/Coupons";
 import Orders from "./pages/Orders/Orders";
@@ -70,7 +70,7 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="login" element={<Login />} />
-          {/* <Route path="/register" element={<Register />} /> */}
+          <Route path="/register" element={<Register />} />
           <Route path="/forgate-password" element={<Forgatepassword />}></Route>
           {/* ════════════════════════════════════════════════════════════════
               ADMIN ROUTES   —   prefix: /
@@ -112,9 +112,9 @@ const App = () => (
               <Route path="sizes/:id/edit" element={<SizeFormPage />} /> */}
 
               {/* Promotions */}
-              <Route path="discounts" element={<Discounts />} />
+              {/* <Route path="discounts" element={<Discounts />} />
               <Route path="discounts/add" element={<DiscountFormPage />} />
-              <Route path="discounts/:id/edit" element={<DiscountFormPage />} />
+              <Route path="discounts/:id/edit" element={<DiscountFormPage />} /> */}
               <Route path="coupons" element={<CouponsPage />} />
               <Route path="coupons/add" element={<CouponFormPage />} />
               <Route path="coupons/:id/edit" element={<CouponFormPage />} />
@@ -220,9 +220,9 @@ const App = () => (
               <Route path="product-labels/add" element={<ProductLabelFormPage />} />
               <Route path="product-labels/:id/edit" element={<ProductLabelFormPage />} />
 
-              <Route path="discounts" element={<Discounts />} />
+              {/* <Route path="discounts" element={<Discounts />} />
               <Route path="discounts/add" element={<DiscountFormPage />} />
-              <Route path="discounts/:id/edit" element={<DiscountFormPage />} />
+              <Route path="discounts/:id/edit" element={<DiscountFormPage />} /> */}
               <Route path="coupons" element={<CouponsPage />} />
               <Route path="coupons/add" element={<CouponFormPage />} />
               <Route path="coupons/:id/edit" element={<CouponFormPage />} />

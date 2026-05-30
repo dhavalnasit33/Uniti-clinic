@@ -24,7 +24,7 @@ import { fetchBrands } from "@/features/brands/brandsThunk";
 import { fetchTypes } from "@/features/types/typesThunk";
 // import { fetchFabrics } from "@/features/fabrics/fabricsThunk";
 // import { fetchColors } from "@/features/colors/colorsThunk";
-import { fetchSizes } from "@/features/sizes/sizesThunk";
+// import { fetchSizes } from "@/features/sizes/sizesThunk";
 import { fetchProductLabels } from "@/features/productLabels/productLabelsThunk";
 import {
   Select,

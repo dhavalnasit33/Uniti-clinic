@@ -63,7 +63,7 @@ const adminSections = [
   {
     label: "Promotions",
     items: [
-      { title: "Discounts", url: "/discounts", icon: Percent },
+      // { title: "Discounts", url: "/discounts", icon: Percent },
       { title: "Coupons", url: "/coupons", icon: Ticket },
 
     ],
@@ -139,7 +139,7 @@ const storeOwnerSections = [
   {
     label: "Promotions",
     items: [
-      { title: "Discounts", url: "/store_owner/discounts", icon: Percent },
+      // { title: "Discounts", url: "/store_owner/discounts", icon: Percent },
       { title: "Coupons", url: "/store_owner/coupons", icon: Ticket },
     ],
   },

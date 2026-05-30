@@ -3,6 +3,7 @@ import {
   bulkDeleteProducts,
   createProduct,
   deleteProduct,
+  duplicateProduct,
   fetchProducts,
   updateProduct,
   updateProductStatus,
@@ -52,6 +53,7 @@ interface ProductsState {
   products: Product[];
   total: number;
   loading: boolean;
+  duplicating: boolean; // ✅ duplicate loading state
   error: string | null;
 }
 
@@ -59,6 +61,7 @@ const initialState: ProductsState = {
   products: [],
   total: 0,
   loading: false,
+  duplicating: false,
   error: null,
 };
 
@@ -82,8 +85,12 @@ const productSlice = createSlice({
         state.error = action.payload as string;
       })
       .addCase(createProduct.fulfilled, (state, action) => {
-        state.products.unshift(action.payload);
-        state.total += 1;
+        // createProduct returns { product, variants } — product extract karo
+        const newProduct = action.payload?.product || action.payload;
+        if (newProduct) {
+          state.products.unshift(newProduct);
+          state.total += 1;
+        }
       })
       .addCase(updateProduct.fulfilled, (state, action) => {
         const index = state.products.findIndex(
@@ -108,6 +115,24 @@ const productSlice = createSlice({
           (p) => !action.payload.includes(p._id),
         );
         state.total -= action.payload.length;
+      })
+      // ✅ Duplicate product cases
+      .addCase(duplicateProduct.pending, (state) => {
+        state.duplicating = true;
+        state.error = null;
+      })
+      .addCase(duplicateProduct.fulfilled, (state, action) => {
+        state.duplicating = false;
+        // createProduct jaisi j response structure aave — product extract karo
+        const newProduct = action.payload?.product || action.payload;
+        if (newProduct) {
+          state.products.unshift(newProduct);
+          state.total += 1;
+        }
+      })
+      .addCase(duplicateProduct.rejected, (state, action) => {
+        state.duplicating = false;
+        state.error = action.payload as string;
       });
   },
 });

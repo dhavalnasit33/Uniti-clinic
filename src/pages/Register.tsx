@@ -247,7 +247,6 @@ export default function Register() {
                 placeholder="Store Website (e.g. https://store1.com)"
                 className="w-full border rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500" />
               <p className="text-xs text-gray-400 mt-1">
-                {/* Aa website domain sathe match thata users aa store_owner ne dikhase. */}
                 {form.storeWebsite && (
                   <span className="text-green-600 ml-1 font-medium">
                     Domain: {(() => {

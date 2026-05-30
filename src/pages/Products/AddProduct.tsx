@@ -1,5 +1,5 @@
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { AppDispatch, RootState } from "@/store";
@@ -8,7 +8,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { ArrowLeft, Trash2, X } from "lucide-react";
+import { ArrowLeft, Copy, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { TiptapEditor } from "@/components/ui/TiptapEditor";
 import { ImageUpload } from "@/components/ui/ImageUpload";
@@ -20,23 +20,29 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { fetchsubCategories } from "@/features/subcategories/subcategoriesThunk";
-import { fetchDiscounts } from "@/features/discounts/discountsThunk";
 import { fetchBrands } from "@/features/brands/brandsThunk";
 import { fetchTypes } from "@/features/types/typesThunk";
 import { useBasePath } from "@/hooks/useBasePath";
 import { fetchProductLabels } from "@/features/productLabels/productLabelsThunk";
 import {
   createProduct,
+  duplicateProduct,
   fetchProducts,
   getProductById,
   updateProduct,
 } from "@/features/products/productsThunk";
-import { Action } from "@radix-ui/react-toast";
+
+const generateSlug = (text: string): string =>
+  text
+    .toLowerCase()
+    .replace(/[()]/g, "")
+    .replace(/[^a-z0-9\s-]/g, "")
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-");
 
 const SECTION_TYPES = [
-  "Select your scalp type",
-  "Select your age",
-  "Select your concern",
+  "Multi Step Selection",
   "Root Cause Section",
   "How Does It Do It Section",
   "Benefits Section",
@@ -44,21 +50,23 @@ const SECTION_TYPES = [
   "Treatment Journey Section",
   "Ingredients Section",
   "use and Others points",
+  "Image Banner Section",
 
+  "Why Choose Unity Hair",
+  "Before & After",
+  "FAQ 1",
+  "FAQ 2",
 ];
 
 const ITEM_LIST_SECTIONS = [
-  "Select your scalp type",
+  "Multi Step Selection",
   "Root Cause Section",
-  "Select your concern",
-  "Select your age",
   "Benefits Section",
   "Ingredients Section",
   "Treatment Kit Section",
   "Treatment Journey Section",
   "How Does It Do It Section",
   "use and Others points",
-
 ];
 
 export default function ProductFormPage() {
@@ -67,22 +75,24 @@ export default function ProductFormPage() {
   const { id } = useParams<{ id: string }>();
   const isEditMode = Boolean(id);
   const basePath = useBasePath();
-  const { categories: subCategories } = useSelector((state: RootState) => state.subcategori);
+
+  const { categories: subCategories } = useSelector(
+    (state: RootState) => state.subcategori,
+  );
   const { brands } = useSelector((state: RootState) => state.brands);
   const { types } = useSelector((state: RootState) => state.types);
   const { products } = useSelector((state: RootState) => state.products);
-  const { discounts } = useSelector((state: RootState) => state.discounts);
-
+  const { duplicating } = useSelector((state: RootState) => state.products);
   const { labels: productLabels } = useSelector(
-    (state: RootState) => state.productLabels
+    (state: RootState) => state.productLabels,
   );
+
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [steps, setSteps] = useState("");
-  const [categoryId, setCategoryId] = useState<string>("");
-  const [images, setImages] = useState<string[]>([]);
+  const [categoryId, setCategoryId] = useState<string[]>([]);
+  const [images, setImages] = useState<string>("");
   const [status, setStatus] = useState(true);
-  const [discountId, setDiscountId] = useState<string>("none");
   const [variants, setVariants] = useState<any[]>([
     {
       brand_id: "",
@@ -115,16 +125,17 @@ export default function ProductFormPage() {
   useEffect(() => {
     dispatch(fetchsubCategories({ page: 1, limit: 100, status: "active" }));
     dispatch(fetchProducts({ page: 1, limit: 100, status: "active" }));
-    dispatch(fetchDiscounts({ page: 1, limit: 100, status: "active" }));
     dispatch(fetchBrands({ page: 1, limit: 100, status: "active" }));
     dispatch(fetchTypes({ page: 1, limit: 100, status: "active" }));
     dispatch(fetchProductLabels({ page: 1, limit: 100, status: "active" }));
   }, [dispatch]);
 
   useEffect(() => {
-    if (subCategories.length > 0 && categoryId) {
-      const exists = subCategories.find((c) => c._id === categoryId);
-      if (!exists) setCategoryId("");
+    if (subCategories.length > 0) {
+      const validIds = categoryId.filter((cid) =>
+        subCategories.some((c) => c._id === cid),
+      );
+      setCategoryId(validIds);
     }
   }, [subCategories]);
 
@@ -136,10 +147,11 @@ export default function ProductFormPage() {
           setName(p.name || "");
           setDescription(p.description || "");
           setSteps(p.steps || "");
-          const catId = p.category_id?._id || p.category_id || "";
-          setCategoryId(String(catId));
-          setDiscountId(p.discount_id?._id || p.discount_id || null);
-          setImages(p.images || []);
+          const catIds = Array.isArray(p.category_id)
+            ? p.category_id.map((cat: any) => cat?._id || cat)
+            : [];
+          setCategoryId(catIds);
+          setImages(p.images || "");
           setStatus(p.status === "active");
 
           if (Array.isArray(p.variants) && p.variants.length > 0) {
@@ -168,7 +180,7 @@ export default function ProductFormPage() {
                 is_trending: !!v.is_trending,
                 steps: v.steps || "",
                 description: v.description || "",
-              }))
+              })),
             );
           }
           if (Array.isArray(p.sections) && p.sections.length > 0) {
@@ -179,39 +191,120 @@ export default function ProductFormPage() {
     }
   }, [dispatch, id, isEditMode]);
 
+  useEffect(() => {
+    const firstVariant = variants?.[0];
+    if (!firstVariant) return;
+
+    setSections((prevSections) => {
+      const updatedSections = [...prevSections];
+      let multiStepIndex = updatedSections.findIndex(
+        (s) => s.type === "Multi Step Selection",
+      );
+
+      if (multiStepIndex === -1) {
+        updatedSections.push({
+          type: "Multi Step Selection",
+          data: {
+            status: true,
+            title: "Pack Selection",
+            description: "",
+            steps: [
+              {
+                status: true,
+                title: "Choose Pack",
+                description: "",
+                display_type: "Pack",
+                variants: [],
+              },
+            ],
+          },
+        });
+        multiStepIndex = updatedSections.length - 1;
+      }
+
+      const firstStep = updatedSections[multiStepIndex]?.data?.steps?.[0];
+      if (!firstStep) return prevSections;
+
+      firstStep.display_type = "Pack";
+      if (!firstStep.variants) firstStep.variants = [];
+
+      const packOneIndex = firstStep.variants.findIndex(
+        (v: any) => Number(v.badge) === 1,
+      );
+
+      const packOneData = {
+        badge: 1,
+        price: firstVariant.price || "",
+        offerprice: firstVariant.offerprice || "",
+        image: firstVariant.images?.[0] || "",
+        auto_created: true,
+      };
+
+      if (packOneIndex === -1) {
+        firstStep.variants.unshift(packOneData);
+      }
+
+      return [...updatedSections];
+    });
+  }, []);
+
+  const handleDuplicate = async () => {
+    if (!id) return;
+    const result = await dispatch(duplicateProduct(id));
+    if (duplicateProduct.fulfilled.match(result)) {
+      toast.success("Product duplicate successfully created!");
+      const newProduct = result.payload?.product || result.payload;
+      if (newProduct?._id) {
+        navigate(`${basePath}/products/${newProduct._id}/edit`);
+      } else {
+        navigate(`${basePath}/products`);
+      }
+    } else {
+      toast.error((result.payload as string) || "Duplicate failed");
+    }
+  };
+
   const handleVariantChange = (index: number, field: string, value: any) => {
-    const updated = [...variants];
+    const updatedVariants = [...variants];
     if (field === "stock_quantity" && Number(value) < 0) return;
-    updated[index][field] = value;
-    setVariants(updated);
+    updatedVariants[index][field] = value;
+    setVariants(updatedVariants);
+
+    if (index === 0 && (field === "price" || field === "offerprice" || field === "images")) {
+      setSections((prevSections) => {
+        const updatedSections = [...prevSections];
+        const multiStepIndex = updatedSections.findIndex(
+          (s) => s.type === "Multi Step Selection",
+        );
+        if (multiStepIndex === -1) return prevSections;
+
+        const firstStep = updatedSections[multiStepIndex]?.data?.steps?.[0];
+        if (!firstStep) return prevSections;
+
+        const packOneIndex = firstStep.variants?.findIndex(
+          (v: any) => Number(v.badge) === 1,
+        );
+        if (packOneIndex === -1) return prevSections;
+
+        if (field === "price") firstStep.variants[packOneIndex].price = value;
+        if (field === "offerprice") firstStep.variants[packOneIndex].offerprice = value;
+        if (field === "images") firstStep.variants[packOneIndex].image = value?.[0] || "";
+
+        return [...updatedSections];
+      });
+    }
   };
 
   const addVariant = () => {
     setVariants([
       ...variants,
       {
-        brand_id: "",
-        type_id: "",
-        price: "",
-        stock_quantity: "0",
-        sku: "",
-        offerprice: "",
-        ProductWeight: "",
-        ProductHeight: "",
-        ProductLength: "",
-        ProductWidth: "",
-        Manufactured: "",
-        CountryOrigin: "",
-        Marketed: "",
-        barcode: "",
-        images: [],
-        labels: [],
-        status: "active",
-        is_featured: false,
-        is_best_seller: false,
-        is_trending: false,
-        description: "",
-        steps: "",
+        brand_id: "", type_id: "", price: "", stock_quantity: "0",
+        sku: "", offerprice: "", ProductWeight: "", ProductHeight: "",
+        ProductLength: "", ProductWidth: "", Manufactured: "",
+        CountryOrigin: "", Marketed: "", barcode: "", images: [],
+        labels: [], status: "active", is_featured: false,
+        is_best_seller: false, is_trending: false, description: "", steps: "",
       },
     ]);
   };
@@ -222,22 +315,73 @@ export default function ProductFormPage() {
     setVariants(updated);
   };
 
+ 
   const addSection = (type: string) => {
-    setSections([
-      ...sections,
-      {
-        type,
-        data: {
-          status: true,
-          title: "",
-          description: "",
-          items: [],
-        },
-      },
-    ]);
+    let sectionData: any = {
+      status: true,
+      title: "",
+      description: "",
+      display_type: "",
+      items: [],
+    };
+
+    if (type === "Image Banner Section") {
+      sectionData = {
+        status: true,
+        items: [],
+      };
+    }
+
+    if (type === "Why Choose Unity Hair") {
+      sectionData = {
+        status: true,
+        title: "",
+        description: "",
+        items: [
+          {
+            title: "",
+            description: "",
+            image: "",
+          },
+        ],
+      };
+    }
+
+    if (type === "Before & After") {
+      sectionData = {
+        status: true,
+        title: "",
+        description: "",
+        items: [
+          {
+            title: "",
+            description: "",
+            beforeImage: "",
+            afterImage: "",
+          },
+        ],
+      };
+    }
+
+    // FAQ 1 + FAQ 2
+    if (type === "FAQ 1" || type === "FAQ 2") {
+      sectionData = {
+        status: true,
+        title: "",
+        description: "",
+        questions: [
+          {
+            question: "",
+            answer: "",
+            image: "",
+          },
+        ],
+      };
+    }
+
+    setSections([...sections, { type, data: sectionData }]);
     setShowSectionDropdown(false);
   };
-
   const removeSection = (idx: number) => {
     setSections(sections.filter((_, i) => i !== idx));
   };
@@ -248,17 +392,204 @@ export default function ProductFormPage() {
     setSections(updated);
   };
 
+  const addStep = (sectionIdx: number) => {
+    const updated = [...sections];
+    if (!updated[sectionIdx].data.steps) updated[sectionIdx].data.steps = [];
+    updated[sectionIdx].data.steps.push({
+      status: true, title: "", description: "", display_type: "Text", variants: [],
+    });
+    setSections(updated);
+  };
+
+  const removeStep = (sectionIdx: number, stepIdx: number) => {
+    const updated = [...sections];
+    updated[sectionIdx].data.steps.splice(stepIdx, 1);
+    setSections(updated);
+  };
+
+  const updateStepField = (
+    sectionIdx: number, stepIdx: number, field: string, value: any,
+  ) => {
+    setSections((prev) => {
+      const updated = [...prev];
+      updated[sectionIdx] = {
+        ...updated[sectionIdx],
+        data: {
+          ...updated[sectionIdx].data,
+          steps: updated[sectionIdx].data.steps.map((step: any, idx: number) =>
+            idx === stepIdx ? { ...step, [field]: value } : step,
+          ),
+        },
+      };
+      return updated;
+    });
+  };
+
+  const addVariantToStep = (sectionIdx: number, stepIdx: number) => {
+    const updated = [...sections];
+    const displayType = updated[sectionIdx]?.data?.steps?.[stepIdx]?.display_type;
+
+    if (displayType === "Pack") {
+      updated[sectionIdx].data.steps[stepIdx].variants.push({
+        image: "", price: "", offerprice: "", badge: "",
+      });
+    } else {
+      updated[sectionIdx].data.steps[stepIdx].variants.push({
+        title: "",
+        slug: "",
+        description: "",
+        image: "",
+        product_id: null,
+      });
+    }
+    setSections(updated);
+  };
+
+  const removeVariantFromStep = (
+    sectionIdx: number, stepIdx: number, variantIdx: number,
+  ) => {
+    const updated = [...sections];
+    updated[sectionIdx].data.steps[stepIdx].variants.splice(variantIdx, 1);
+    setSections(updated);
+  };
+
+  const updateVariantField = (
+    sectionIdx: number,
+    stepIdx: number,
+    variantIdx: number,
+    field: string,
+    value: any,
+  ) => {
+    const updated = [...sections];
+    const step = updated[sectionIdx].data.steps[stepIdx];
+    const variant = step.variants[variantIdx];
+
+    variant[field] = value;
+
+    if (step.display_type !== "Pack") {
+      if (field === "title") {
+        if (!variant._slugManuallyEdited) {
+          variant.slug = generateSlug(value);
+        }
+      }
+    }
+
+    if (Number(variant.badge) === 1) {
+      if (field === "price" || field === "offerprice" || field === "image") {
+        setVariants((prev) => {
+          const updatedVariants = [...prev];
+          updatedVariants[0] = {
+            ...updatedVariants[0],
+            ...(field === "price" ? { price: value } : {}),
+            ...(field === "offerprice" ? { offerprice: value } : {}),
+            ...(field === "image" ? { images: [value] } : {}),
+          };
+          return updatedVariants;
+        });
+      }
+    }
+
+    setSections(updated);
+  };
+
+  const handleSlugManualEdit = (
+    sectionIdx: number, stepIdx: number, variantIdx: number, value: string,
+  ) => {
+    const updated = [...sections];
+    const variant = updated[sectionIdx].data.steps[stepIdx].variants[variantIdx];
+    variant.slug = value;
+    variant._slugManuallyEdited = value !== generateSlug(variant.title || "");
+    setSections(updated);
+  };
+
   const addSectionItem = (idx: number) => {
     const updated = [...sections];
 
-    if (!Array.isArray(updated[idx].data.items)) updated[idx].data.items = [];
+    if (!Array.isArray(updated[idx].data.items)) {
+      updated[idx].data.items = [];
+    }
 
     const sectionType = updated[idx].type;
-    if (sectionType === "use and Others points") {
-      updated[idx].data.items.push({ usPoint: "", otherPoint: "" });
-    } else {
-      updated[idx].data.items.push({ name: "", description: "", image: "" });
+
+    if (sectionType === "Image Banner Section") {
+      updated[idx].data.items.push({
+        title: "",
+        description: "",
+        image: "",
+      });
     }
+
+    else if (sectionType === "Why Choose Unity Hair") {
+      updated[idx].data.items.push({
+        title: "",
+        description: "",
+        image: "",
+      });
+    }
+
+    else if (sectionType === "Before & After") {
+      updated[idx].data.items.push({
+        title: "",
+        description: "",
+        beforeImage: "",
+        afterImage: "",
+      });
+    }
+
+    else if (sectionType === "use and Others points") {
+      updated[idx].data.items.push({
+        usPoint: "",
+        otherPoint: "",
+      });
+    }
+
+    else {
+      updated[idx].data.items.push({
+        name: "",
+        description: "",
+        image: "",
+      });
+    }
+
+    setSections(updated);
+  };
+
+  const addFaqQuestion = (sectionIdx: number) => {
+    const updated = [...sections];
+
+    if (!updated[sectionIdx].data.questions) {
+      updated[sectionIdx].data.questions = [];
+    }
+
+    updated[sectionIdx].data.questions.push({
+      question: "",
+      answer: "",
+      image: "",
+    });
+
+    setSections(updated);
+  };
+
+  const removeFaqQuestion = (
+    sectionIdx: number,
+    questionIdx: number,
+  ) => {
+    const updated = [...sections];
+    updated[sectionIdx].data.questions.splice(questionIdx, 1);
+    setSections(updated);
+  };
+
+  const updateFaqQuestion = (
+    sectionIdx: number,
+    questionIdx: number,
+    field: string,
+    value: any,
+  ) => {
+    const updated = [...sections];
+
+    updated[sectionIdx].data.questions[questionIdx][field] =
+      value;
+
     setSections(updated);
   };
 
@@ -268,7 +599,9 @@ export default function ProductFormPage() {
     setSections(updated);
   };
 
-  const updateSectionItem = (sectionIdx: number, itemIdx: number, field: string, value: any) => {
+  const updateSectionItem = (
+    sectionIdx: number, itemIdx: number, field: string, value: any,
+  ) => {
     const updated = [...sections];
     updated[sectionIdx].data.items[itemIdx][field] = value;
     setSections(updated);
@@ -277,36 +610,66 @@ export default function ProductFormPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return toast.error("Product Name is required");
-    if (!categoryId) return toast.error("Category is required");
+    if (categoryId.length === 0) return toast.error("Category is required");
     if (variants.length === 0) return toast.error("Add at least one variant");
+
     for (let i = 0; i < variants.length; i++) {
       const v = variants[i];
-      if (!v.brand_id ||
-        !v.price ||
-        !v.barcode ||
-        !v.ProductWidth ||
-        !v.ProductWeight ||
-        !v.offerprice ||
-        !v.ProductHeight ||
-        !v.ProductLength ||
-        !v.CountryOrigin ||
-        !v.Marketed ||
-        !v.Manufactured ||
-        !v.stock_quantity || !v.sku) {
+      if (
+        !v.brand_id || !v.price || !v.barcode || !v.ProductWidth ||
+        !v.ProductWeight || !v.offerprice || !v.ProductHeight ||
+        !v.ProductLength || !v.CountryOrigin || !v.Marketed ||
+        !v.Manufactured || !v.stock_quantity || !v.sku
+      ) {
         return toast.error(`All fields are required for variant ${i + 1}`);
       }
     }
+
+    const cleanSections = sections.map((section) => {
+      if (section.type !== "Multi Step Selection") return section;
+      return {
+        ...section,
+        data: {
+          ...section.data,
+          steps: (section.data.steps || []).map((step: any) => {
+            if (step.display_type === "Pack") {
+              const packExists = (step.variants || []).some(
+                (v: any) => Number(v.badge) === 1,
+              );
+              const finalVariants = packExists
+                ? step.variants
+                : [
+                  {
+                    badge: 1,
+                    price: variants?.[0]?.price || 0,
+                    offerprice: variants?.[0]?.offerprice || 0,
+                    image: variants?.[0]?.images?.[0] || "",
+                    auto_created: true,
+                  },
+                  ...(step.variants || []),
+                ];
+              return { ...step, variants: finalVariants };
+            }
+
+            return {
+              ...step,
+              variants: (step.variants || []).map((v: any) => {
+                const { _slugManuallyEdited, ...cleanVariant } = v;
+                return cleanVariant;
+              }),
+            };
+          }),
+        },
+      };
+    });
+
     const payload = {
-      name,
-      description,
-      steps,
-      category_id: categoryId,
-      images,
+      name, description, steps, category_id: categoryId, images,
       status: status ? "active" : "inactive",
-      discount_id: discountId === "none" ? null : discountId,
       variants,
-      sections,
+      sections: cleanSections,
     };
+
     try {
       let result;
       if (isEditMode && id) {
@@ -314,12 +677,13 @@ export default function ProductFormPage() {
       } else {
         result = await dispatch(createProduct(payload));
       }
+
       if (
         createProduct.fulfilled.match(result) ||
         updateProduct.fulfilled.match(result)
       ) {
         toast.success(
-          isEditMode ? "Product updated successfully!" : "Product created successfully!"
+          isEditMode ? "Product updated successfully!" : "Product created successfully!",
         );
         navigate(`${basePath}/products`);
       } else {
@@ -338,13 +702,27 @@ export default function ProductFormPage() {
             <ArrowLeft className="h-4 w-4" />
           </Button>
         </Link>
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">
-            {isEditMode ? "Edit Product" : "Add New Product"}
-          </h1>
-          <p className="text-gray-500 mt-1">
-            {isEditMode ? "Update product details." : "Create a new product."}
-          </p>
+        <div className="flex justify-between items-center w-full">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">
+              {isEditMode ? "Edit Product" : "Add New Product"}
+            </h1>
+            <p className="text-gray-500 mt-1">
+              {isEditMode ? "Update product details." : "Create a new product."}
+            </p>
+          </div>
+          {isEditMode && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleDuplicate}
+              disabled={duplicating}
+              className="flex items-center gap-2"
+            >
+              <Copy className="h-4 w-4" />
+              {duplicating ? "Duplicating..." : "Duplicate Product"}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -359,7 +737,6 @@ export default function ProductFormPage() {
               <Input value={name} onChange={(e) => setName(e.target.value)} />
             </div>
             <div className="grid grid-cols-2 gap-3">
-
               <div>
                 <Label>Description</Label>
                 <TiptapEditor value={description} onChange={(val) => setDescription(val)} />
@@ -371,38 +748,47 @@ export default function ProductFormPage() {
             </div>
             <div>
               <Label>SubCategory *</Label>
-              <Select value={categoryId} onValueChange={(val) => setCategoryId(val)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select category" />
-                </SelectTrigger>
-                <SelectContent>
+              <div className="border rounded-md p-3 min-h-[50px]">
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {categoryId.map((cid) => {
+                    const category = subCategories.find((c) => c._id === cid);
+                    return (
+                      <div
+                        key={cid}
+                        className="bg-green-600 text-white px-3 py-1 rounded-md flex items-center gap-2 text-sm"
+                      >
+                        {category?.name}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setCategoryId(categoryId.filter((c) => c !== cid))
+                          }
+                        >
+                          ×
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+                <select
+                  className="w-full bg-transparent border rounded-md p-2"
+                  value=""
+                  onChange={(e) => {
+                    const selectedId = e.target.value;
+                    if (selectedId && !categoryId.includes(selectedId)) {
+                      setCategoryId([...categoryId, selectedId]);
+                    }
+                  }}
+                >
+                  <option value="">Select SubCategory</option>
                   {subCategories
-                    .filter((cat) => cat.parent_id !== null && cat.parent_id !== undefined)
+                    .filter((cat) => cat.parent_id)
+                    .filter((cat) => !categoryId.includes(cat._id))
                     .map((c) => (
-                      <SelectItem key={c._id} value={c._id}>
-                        {c.name}
-                      </SelectItem>
+                      <option key={c._id} value={c._id}>{c.name}</option>
                     ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label>Discount</Label>
-              <Select value={discountId ?? ""} onValueChange={setDiscountId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select discount" />
-                </SelectTrigger>
-                <SelectContent>
-
-                  <SelectItem value="none">None</SelectItem>
-                  {discounts.map((d) => (
-                    <SelectItem key={d._id} value={d._id}>
-                      {d.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                </select>
+              </div>
             </div>
 
             <div>
@@ -410,15 +796,15 @@ export default function ProductFormPage() {
               <ImageUpload
                 value={images}
                 onChange={(val) => {
-                  if (Array.isArray(val)) {
-                    setImages(val);
-                  } else if (val) {
-                    setImages([val]);
-                  } else {
-                    setImages([]);
-                  }
+                  const image =
+                    typeof val === "string"
+                      ? val
+                      : Array.isArray(val)
+                        ? val[0]
+                        : "";
+                  setImages(image);
                 }}
-                multiple
+                multiple={false}
               />
             </div>
             <div className="flex items-center justify-between mt-2">
@@ -436,7 +822,9 @@ export default function ProductFormPage() {
             {variants.map((v, idx) => (
               <div key={idx} className="p-4 border rounded space-y-3 relative">
                 <div>
-                  <CardTitle className="text-lg font-semibold">Variant ({idx + 1})</CardTitle>
+                  <CardTitle className="text-lg font-semibold">
+                    Variant ({idx + 1})
+                  </CardTitle>
                   <Button
                     type="button"
                     variant="destructive"
@@ -446,6 +834,7 @@ export default function ProductFormPage() {
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
+
                 <div className="col-span-2 flex items-center justify-between mt-2">
                   <Label htmlFor={`variant-status-${idx}`}>Status</Label>
                   <Switch
@@ -456,16 +845,12 @@ export default function ProductFormPage() {
                     }
                   />
                 </div>
+
                 <div className="grid grid-cols-3 gap-3">
                   <div>
                     <Label>Brand *</Label>
-                    <Select
-                      value={v.brand_id}
-                      onValueChange={(val) => handleVariantChange(idx, "brand_id", val)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select brand" />
-                      </SelectTrigger>
+                    <Select value={v.brand_id} onValueChange={(val) => handleVariantChange(idx, "brand_id", val)}>
+                      <SelectTrigger><SelectValue placeholder="Select brand" /></SelectTrigger>
                       <SelectContent>
                         {brands.map((b) => (
                           <SelectItem key={b._id} value={b._id}>{b.name}</SelectItem>
@@ -475,13 +860,8 @@ export default function ProductFormPage() {
                   </div>
                   <div>
                     <Label>Type</Label>
-                    <Select
-                      value={v.type_id}
-                      onValueChange={(val) => handleVariantChange(idx, "type_id", val)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select type" />
-                      </SelectTrigger>
+                    <Select value={v.type_id} onValueChange={(val) => handleVariantChange(idx, "type_id", val)}>
+                      <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
                       <SelectContent>
                         {types.map((t) => (
                           <SelectItem key={t._id} value={t._id}>{t.name}</SelectItem>
@@ -491,157 +871,78 @@ export default function ProductFormPage() {
                   </div>
                   <div>
                     <Label>Price *</Label>
-                    <Input
-                      type="number"
-                      value={v.price}
-                      onChange={(e) => handleVariantChange(idx, "price", e.target.value)}
-                    />
+                    <Input type="number" value={v.price} onChange={(e) => handleVariantChange(idx, "price", e.target.value)} />
                   </div>
                   <div>
                     <Label>Stock *</Label>
-                    <Input
-                      type="number"
-                      value={v.stock_quantity}
-                      min={0}
-                      onChange={(e) => handleVariantChange(idx, "stock_quantity", e.target.value)}
-                    />
+                    <Input type="number" value={v.stock_quantity} min={0} onChange={(e) => handleVariantChange(idx, "stock_quantity", e.target.value)} />
                   </div>
                   <div>
                     <Label>SKU *</Label>
-                    <Input
-                      value={v.sku}
-                      onChange={(e) => handleVariantChange(idx, "sku", e.target.value)}
-                    />
+                    <Input value={v.sku} onChange={(e) => handleVariantChange(idx, "sku", e.target.value)} />
                   </div>
                   <div>
-                    <Label>offer Price *</Label>
-                    <Input
-                      type="number"
-                      value={v.offerprice}
-                      onChange={(e) => handleVariantChange(idx, "offerprice", e.target.value)}
-                    />
+                    <Label>Offer Price *</Label>
+                    <Input type="number" value={v.offerprice} onChange={(e) => handleVariantChange(idx, "offerprice", e.target.value)} />
                   </div>
                   <div>
                     <Label>Bar Code *</Label>
-                    <Input
-                      type="text"
-                      value={v.barcode}
-                      onChange={(e) => handleVariantChange(idx, "barcode", e.target.value)}
-                    />
+                    <Input value={v.barcode} onChange={(e) => handleVariantChange(idx, "barcode", e.target.value)} />
                   </div>
                   <div>
-                    <Label>
-                      Manufactured By *</Label>
-                    <Input
-                      type="text"
-                      value={v.Manufactured}
-                      onChange={(e) => handleVariantChange(idx, "Manufactured", e.target.value)}
-                    />
+                    <Label>Manufactured By *</Label>
+                    <Input value={v.Manufactured} onChange={(e) => handleVariantChange(idx, "Manufactured", e.target.value)} />
                   </div>
                   <div>
                     <Label>Marketed By *</Label>
-                    <Input
-                      type="text"
-                      value={v.Marketed}
-                      onChange={(e) => handleVariantChange(idx, "Marketed", e.target.value)}
-                    />
+                    <Input value={v.Marketed} onChange={(e) => handleVariantChange(idx, "Marketed", e.target.value)} />
                   </div>
                   <div>
                     <Label>Country Origin *</Label>
-                    <Input
-                      type="text"
-                      value={v.CountryOrigin}
-                      onChange={(e) => handleVariantChange(idx, "CountryOrigin", e.target.value)}
-                    />
+                    <Input value={v.CountryOrigin} onChange={(e) => handleVariantChange(idx, "CountryOrigin", e.target.value)} />
                   </div>
-
                   <div>
                     <Label>Product Length (cms) *</Label>
-                    <Input
-                      type="number"
-                      value={v.ProductLength}
-                      onChange={(e) => handleVariantChange(idx, "ProductLength", e.target.value)}
-                    />
+                    <Input type="number" value={v.ProductLength} onChange={(e) => handleVariantChange(idx, "ProductLength", e.target.value)} />
                   </div>
                   <div>
                     <Label>Product Width (cms) *</Label>
-                    <Input
-                      type="number"
-                      value={v.ProductWidth}
-                      onChange={(e) => handleVariantChange(idx, "ProductWidth", e.target.value)}
-                    />
+                    <Input type="number" value={v.ProductWidth} onChange={(e) => handleVariantChange(idx, "ProductWidth", e.target.value)} />
                   </div>
-
                   <div>
                     <Label>Product Height (cms) *</Label>
-                    <Input
-                      type="number"
-                      value={v.ProductHeight}
-                      onChange={(e) => handleVariantChange(idx, "ProductHeight", e.target.value)}
-                    />
+                    <Input type="number" value={v.ProductHeight} onChange={(e) => handleVariantChange(idx, "ProductHeight", e.target.value)} />
                   </div>
                   <div>
                     <Label>Product Weight (Kg) *</Label>
-                    <Input
-                      type="number"
-                      value={v.ProductWeight}
-                      onChange={(e) => handleVariantChange(idx, "ProductWeight", e.target.value)}
-                    />
+                    <Input type="number" value={v.ProductWeight} onChange={(e) => handleVariantChange(idx, "ProductWeight", e.target.value)} />
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label>Description (Variant {idx + 1})</Label>
-                    <TiptapEditor
-                      value={v.description}
-                      onChange={(val) => handleVariantChange(idx, "description", val)}
-                    />
-                  </div>
-                  <div>
-                    <Label>How To Use Steps  (Variant {idx + 1})</Label>
-                    <TiptapEditor value={v.steps} onChange={(val) => handleVariantChange(idx, "steps", val)} />
-                  </div>
-                </div>
+
                 <div className="grid grid-cols-2 gap-3">
                   <div className="flex flex-wrap gap-6 mt-4 col-span-2">
                     <div className="flex items-center gap-2">
                       <Label>Featured</Label>
-                      <Switch
-                        checked={v.is_featured}
-                        onCheckedChange={(val) => handleVariantChange(idx, "is_featured", val)}
-                      />
+                      <Switch checked={v.is_featured} onCheckedChange={(val) => handleVariantChange(idx, "is_featured", val)} />
                     </div>
                     <div className="flex items-center gap-2">
                       <Label>Best Seller</Label>
-                      <Switch
-                        checked={v.is_best_seller}
-                        onCheckedChange={(val) => handleVariantChange(idx, "is_best_seller", val)}
-                      />
+                      <Switch checked={v.is_best_seller} onCheckedChange={(val) => handleVariantChange(idx, "is_best_seller", val)} />
                     </div>
                     <div className="flex items-center gap-2">
                       <Label>Trending</Label>
-                      <Switch
-                        checked={v.is_trending}
-                        onCheckedChange={(val) => handleVariantChange(idx, "is_trending", val)}
-                      />
+                      <Switch checked={v.is_trending} onCheckedChange={(val) => handleVariantChange(idx, "is_trending", val)} />
                     </div>
                   </div>
                   <div className="col-span-2">
                     <Label>Variant Images</Label>
-                    <ImageUpload
-                      value={v.images}
-                      onChange={(urls) => handleVariantChange(idx, "images", urls)}
-                      multiple
-                    />
+                    <ImageUpload value={v.images} onChange={(urls) => handleVariantChange(idx, "images", urls)} multiple />
                   </div>
                   <div className="col-span-2">
                     <Label>Variant Labels</Label>
                     <div className="flex flex-wrap gap-2 mt-1">
                       {productLabels.map((label) => (
-                        <label
-                          key={label._id}
-                          className="inline-flex items-center gap-2 cursor-pointer"
-                        >
+                        <label key={label._id} className="inline-flex items-center gap-2 cursor-pointer">
                           <input
                             type="checkbox"
                             value={label._id}
@@ -663,13 +964,9 @@ export default function ProductFormPage() {
                 </div>
               </div>
             ))}
-            <div className="flex justify-center">
-              <Button type="button" onClick={addVariant}>
-                Add Variant
-              </Button>
-            </div>
           </CardContent>
         </Card>
+
         <Card className="shadow-md border border-gray-200">
           <CardHeader className="flex flex-col justify-center items-center">
             <CardTitle className="text-lg font-semibold">Page Section Builder</CardTitle>
@@ -677,7 +974,6 @@ export default function ProductFormPage() {
           <CardContent className="space-y-4">
             {sections.map((section, idx) => (
               <div key={idx} className="p-4 border rounded-lg space-y-4">
-
                 <div className="flex justify-between items-center">
                   <div className="flex items-center gap-3">
                     <span className="text-xs text-gray-400">⇅</span>
@@ -685,12 +981,7 @@ export default function ProductFormPage() {
                       {section.type} {idx + 1}
                     </h3>
                   </div>
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    size="sm"
-                    onClick={() => removeSection(idx)}
-                  >
+                  <Button type="button" variant="destructive" size="sm" onClick={() => removeSection(idx)}>
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
@@ -702,7 +993,8 @@ export default function ProductFormPage() {
                     onCheckedChange={(val) => updateSectionField(idx, "status", val)}
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+
+                <div className="grid grid-cols-3 gap-3">
                   <div>
                     <Label>Title</Label>
                     <Input
@@ -721,6 +1013,574 @@ export default function ProductFormPage() {
                   </div>
                 </div>
 
+                {section.type === "Multi Step Selection" && (
+                  <div className="space-y-6">
+                    {(section.data.steps || []).map((step: any, stepIdx: number) => (
+                      <div key={stepIdx} className="border rounded-xl p-4 bg-slate-50">
+                        <div className="flex justify-between mb-4">
+                          <h3 className="font-bold text-lg">Step {stepIdx + 1}</h3>
+                          <div className="flex items-center gap-3">
+                            <Label>Step Status</Label>
+                            <Switch
+                              checked={step?.status !== false}
+                              onCheckedChange={(checked) =>
+                                updateStepField(idx, stepIdx, "status", checked)
+                              }
+                            />
+                            <Button
+                              type="button"
+                              variant="destructive"
+                              onClick={() => removeStep(idx, stepIdx)}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-4">
+                          <div>
+                            <Label>Step Title</Label>
+                            <Input
+                              value={step.title}
+                              placeholder="e.g. Select your scalp type"
+                              onChange={(e) => updateStepField(idx, stepIdx, "title", e.target.value)}
+                            />
+                          </div>
+                          <div>
+                            <Label>Description</Label>
+                            <Input
+                              value={step.description}
+                              placeholder="description"
+                              onChange={(e) => updateStepField(idx, stepIdx, "description", e.target.value)}
+                            />
+                          </div>
+                          <div>
+                            <Label>Display Type</Label>
+                            <Select
+                              value={step.display_type || "Text"}
+                              onValueChange={(value) =>
+                                updateStepField(idx, stepIdx, "display_type", value)
+                              }
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select display type" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Text">Text</SelectItem>
+                                <SelectItem value="Text with img">Text with img</SelectItem>
+                                <SelectItem value="Upgrade Product">Upgrade Product</SelectItem>
+                                <SelectItem value="Pack">Pack</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+
+                        <div className="space-y-4 mt-4">
+                          {(step.variants || []).map((variant: any, variantIdx: number) => (
+                            <div key={variantIdx} className="border p-4 rounded-lg bg-white">
+                              <div className="flex justify-between mb-3">
+                                <h5 className="font-semibold">Variant {variantIdx + 1}</h5>
+                                <Button
+                                  type="button"
+                                  variant="destructive"
+                                  size="sm"
+                                  onClick={() => removeVariantFromStep(idx, stepIdx, variantIdx)}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </div>
+
+                              {step.display_type === "Pack" && (
+                                <div className="grid grid-cols-2 gap-4">
+                                  <div>
+                                    <Label>Original Price</Label>
+                                    <Input
+                                      type="number"
+                                      value={variant.price || ""}
+                                      placeholder="MRP"
+                                      onChange={(e) =>
+                                        updateVariantField(idx, stepIdx, variantIdx, "price", e.target.value)
+                                      }
+                                    />
+                                  </div>
+                                  <div>
+                                    <Label>Offer Price</Label>
+                                    <Input
+                                      type="number"
+                                      value={variant.offerprice || ""}
+                                      placeholder="Offer Price"
+                                      onChange={(e) =>
+                                        updateVariantField(idx, stepIdx, variantIdx, "offerprice", e.target.value)
+                                      }
+                                    />
+                                  </div>
+                                  <div>
+                                    <Label>Pack of</Label>
+                                    <Input
+                                      value={variant.badge || ""}
+                                      placeholder="e.g 1, 2, 3"
+                                      onChange={(e) =>
+                                        updateVariantField(idx, stepIdx, variantIdx, "badge", e.target.value)
+                                      }
+                                    />
+                                  </div>
+                                  <div>
+                                    <Label>Upload Image</Label>
+                                    <ImageUpload
+                                      value={variant.image}
+                                      onChange={(val) => {
+                                        const url = typeof val === "string" ? val : Array.isArray(val) ? val[0] : "";
+                                        updateVariantField(idx, stepIdx, variantIdx, "image", url);
+                                      }}
+                                      multiple={false}
+                                    />
+                                  </div>
+                                </div>
+                              )}
+
+                              {step.display_type !== "Pack" && (
+                                <div className="grid grid-cols-3 gap-4">
+                                  <div>
+                                    <Label>Title</Label>
+                                    <Input
+                                      value={variant.title || ""}
+                                      placeholder="e.g. Stage 1 (Receding Hairline)"
+                                      onChange={(e) =>
+                                        updateVariantField(idx, stepIdx, variantIdx, "title", e.target.value)
+                                      }
+                                    />
+                                  </div>
+
+                                  <div>
+                                    <Label>Select Product</Label>
+                                    <Select
+                                      value={variant.product_id || ""}
+                                      onValueChange={(val) =>
+                                        updateVariantField(idx, stepIdx, variantIdx, "product_id", val)
+                                      }
+                                    >
+                                      <SelectTrigger>
+                                        <SelectValue placeholder="Select Product" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {products
+                                          .filter((p) => p._id !== id)
+                                          .map((p) => (
+                                            <SelectItem key={p._id} value={p._id}>
+                                              {p.name}
+                                            </SelectItem>
+                                          ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+
+                                  <div>
+                                    <Label className="flex items-center gap-2">
+                                      Slug
+
+                                    </Label>
+                                    <Input
+                                      value={variant.slug || ""}
+                                      placeholder="auto-generated-slug"
+                                      onChange={(e) =>
+                                        handleSlugManualEdit(idx, stepIdx, variantIdx, e.target.value)
+                                      }
+                                    />
+                                    {variant.slug && (
+                                      <p className="text-xs text-gray-400 mt-1">
+                                        /products/<span className="text-blue-500">{variant.slug}</span>
+                                      </p>
+                                    )}
+                                  </div>
+
+
+                                  {step.display_type !== "Text" && (
+                                    <div className="col-span-3">
+                                      <Label>Upload Image</Label>
+                                      <ImageUpload
+                                        value={variant.image}
+                                        onChange={(val) => {
+                                          const url = typeof val === "string" ? val : Array.isArray(val) ? val[0] : "";
+                                          updateVariantField(idx, stepIdx, variantIdx, "image", url);
+                                        }}
+                                        multiple={false}
+                                      />
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+
+                          <div className="w-full flex justify-center">
+                            <Button type="button" onClick={() => addVariantToStep(idx, stepIdx)}>
+                              Add Option
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+
+                    <Button type="button" onClick={() => addStep(idx)}>
+                      Add Step
+                    </Button>
+                  </div>
+                )}
+
+
+
+
+       
+
+                {section.type === "Why Choose Unity Hair" && (
+                  <div className="space-y-4">
+                    {section.data.items?.map(
+                      (item: any, itemIdx: number) => (
+                        <div
+                          key={itemIdx}
+                          className="border rounded-xl p-4 space-y-4 bg-white"
+                        >
+                          <div className="flex justify-between items-center">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-gray-400">
+                                ⇅
+                              </span>
+
+                              <h4 className="font-semibold text-gray-700">
+                                Item {itemIdx + 1}
+                              </h4>
+                            </div>
+
+                            <Button
+                              type="button"
+                              variant="destructive"
+                              size="sm"
+                              onClick={() =>
+                                removeSectionItem(idx, itemIdx)
+                              }
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+
+                          <div className="grid grid-cols-3 gap-4">
+                            <div>
+                              <Label>Title</Label>
+
+                              <Input
+                                placeholder="Enter Title"
+                                value={item.title || ""}
+                                onChange={(e) =>
+                                  updateSectionItem(
+                                    idx,
+                                    itemIdx,
+                                    "title",
+                                    e.target.value
+                                  )
+                                }
+                              />
+                            </div>
+
+                            <div>
+                              <Label>Description</Label>
+
+                              <Input
+                                placeholder="Enter Description"
+                                value={item.description || ""}
+                                onChange={(e) =>
+                                  updateSectionItem(
+                                    idx,
+                                    itemIdx,
+                                    "description",
+                                    e.target.value
+                                  )
+                                }
+                              />
+                            </div>
+
+                            <div>
+                              <Label>Image</Label>
+
+                              <ImageUpload
+                                value={item.image || ""}
+                                onChange={(val) => {
+                                  const image =
+                                    typeof val === "string"
+                                      ? val
+                                      : Array.isArray(val)
+                                        ? val[0]
+                                        : "";
+
+                                  updateSectionItem(
+                                    idx,
+                                    itemIdx,
+                                    "image",
+                                    image
+                                  );
+                                }}
+                                multiple={false}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      ),
+                    )}
+
+                    <div className="flex justify-center w-full">
+                      <Button
+                        type="button"
+                        onClick={() => addSectionItem(idx)}
+                      >
+                        Add to items
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+
+
+                {section.type === "Before & After" && (
+                  <div className="space-y-4">
+                    {section.data.items?.map(
+                      (item: any, itemIdx: number) => (
+                        <div
+                          key={itemIdx}
+                          className="border rounded-xl p-4 space-y-4 bg-white"
+                        >
+                          {/* HEADER */}
+                          <div className="flex justify-between items-center">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-gray-400">
+                                ⇅
+                              </span>
+
+                              <h4 className="font-semibold text-gray-700">
+                                Item {itemIdx + 1}
+                              </h4>
+                            </div>
+
+                            <Button
+                              type="button"
+                              variant="destructive"
+                              size="sm"
+                              onClick={() =>
+                                removeSectionItem(idx, itemIdx)
+                              }
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+
+                          {/* FIELDS */}
+                          <div className="grid grid-cols-4 gap-4">
+                            <div>
+                              <Label>Title</Label>
+
+                              <Input
+                                placeholder="Enter Title"
+                                value={item.title || ""}
+                                onChange={(e) =>
+                                  updateSectionItem(
+                                    idx,
+                                    itemIdx,
+                                    "title",
+                                    e.target.value
+                                  )
+                                }
+                              />
+                            </div>
+
+                            <div>
+                              <Label>Description</Label>
+
+                              <Input
+                                placeholder="Enter Description"
+                                value={item.description || ""}
+                                onChange={(e) =>
+                                  updateSectionItem(
+                                    idx,
+                                    itemIdx,
+                                    "description",
+                                    e.target.value
+                                  )
+                                }
+                              />
+                            </div>
+
+                            <div>
+                              <Label>Before Image</Label>
+
+                              <ImageUpload
+                                value={item.beforeImage || ""}
+                                onChange={(val) => {
+                                  const image =
+                                    typeof val === "string"
+                                      ? val
+                                      : Array.isArray(val)
+                                        ? val[0]
+                                        : "";
+
+                                  updateSectionItem(
+                                    idx,
+                                    itemIdx,
+                                    "beforeImage",
+                                    image
+                                  );
+                                }}
+                                multiple={false}
+                              />
+                            </div>
+
+                            <div>
+                              <Label>After Image</Label>
+
+                              <ImageUpload
+                                value={item.afterImage || ""}
+                                onChange={(val) => {
+                                  const image =
+                                    typeof val === "string"
+                                      ? val
+                                      : Array.isArray(val)
+                                        ? val[0]
+                                        : "";
+
+                                  updateSectionItem(
+                                    idx,
+                                    itemIdx,
+                                    "afterImage",
+                                    image
+                                  );
+                                }}
+                                multiple={false}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      ),
+                    )}
+
+                    <div className="flex justify-center w-full">
+                      <Button
+                        type="button"
+                        onClick={() => addSectionItem(idx)}
+                      >
+                        Add to items
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+
+               
+
+                {(section.type === "FAQ 1" ||
+                  section.type === "FAQ 2") && (
+                    <div className="space-y-4">
+
+                      {section.data.questions?.map(
+                        (faq: any, faqIdx: number) => (
+                          <div
+                            key={faqIdx}
+                            className="border rounded-xl p-4 space-y-4 bg-white"
+                          >
+                            {/* HEADER */}
+                            <div className="flex justify-between items-center">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-gray-400">
+                                  ⇅
+                                </span>
+
+                                <h4 className="font-semibold text-gray-700">
+                                  Question {faqIdx + 1}
+                                </h4>
+                              </div>
+
+                              <Button
+                                type="button"
+                                variant="destructive"
+                                size="sm"
+                                onClick={() =>
+                                  removeFaqQuestion(idx, faqIdx)
+                                }
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
+
+                            <div className="grid grid-cols-3 gap-4">
+                              <div>
+                                <Label>Question</Label>
+
+                                <Input
+                                  placeholder="Enter Question"
+                                  value={faq.question || ""}
+                                  onChange={(e) =>
+                                    updateFaqQuestion(
+                                      idx,
+                                      faqIdx,
+                                      "question",
+                                      e.target.value
+                                    )
+                                  }
+                                />
+                              </div>
+
+                              <div>
+                                <Label>Answer</Label>
+
+                                <Input
+                                  placeholder="Enter Answer"
+                                  value={faq.answer || ""}
+                                  onChange={(e) =>
+                                    updateFaqQuestion(
+                                      idx,
+                                      faqIdx,
+                                      "answer",
+                                      e.target.value
+                                    )
+                                  }
+                                />
+                              </div>
+
+                              <div>
+                                <Label>Image</Label>
+
+                                <ImageUpload
+                                  value={faq.image || ""}
+                                  onChange={(val) => {
+                                    const image =
+                                      typeof val === "string"
+                                        ? val
+                                        : Array.isArray(val)
+                                          ? val[0]
+                                          : "";
+
+                                    updateFaqQuestion(
+                                      idx,
+                                      faqIdx,
+                                      "image",
+                                      image
+                                    );
+                                  }}
+                                  multiple={false}
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        ),
+                      )}
+
+                      <div className="flex justify-center w-full">
+                        <Button
+                          type="button"
+                          onClick={() => addFaqQuestion(idx)}
+                        >
+                          Add to questions
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
                 {ITEM_LIST_SECTIONS.includes(section.type) && (
                   <div className="space-y-3">
                     {(section.data.items || []).map((item: any, itemIdx: number) => (
@@ -732,12 +1592,7 @@ export default function ProductFormPage() {
                               {item.name || `Item ${itemIdx + 1}`}
                             </span>
                           </div>
-                          <Button
-                            type="button"
-                            variant="destructive"
-                            size="sm"
-                            onClick={() => removeSectionItem(idx, itemIdx)}
-                          >
+                          <Button type="button" variant="destructive" size="sm" onClick={() => removeSectionItem(idx, itemIdx)}>
                             🗑
                           </Button>
                         </div>
@@ -746,115 +1601,72 @@ export default function ProductFormPage() {
                             <>
                               <div>
                                 <Label>Us (Point)</Label>
-                                <Input
-                                  value={item.name || ""}
-                                  placeholder="Enter Us Point"
-                                  onChange={(e) => updateSectionItem(idx, itemIdx, "name", e.target.value)}
-                                />
+                                <Input value={item.name || ""} placeholder="Enter Us Point" onChange={(e) => updateSectionItem(idx, itemIdx, "name", e.target.value)} />
                               </div>
                               <div>
                                 <Label>Others (Point)</Label>
-                                <Input
-                                  value={item.description || ""}
-                                  placeholder="Enter Others Point"
-                                  onChange={(e) => updateSectionItem(idx, itemIdx, "description", e.target.value)}
-                                />
+                                <Input value={item.description || ""} placeholder="Enter Others Point" onChange={(e) => updateSectionItem(idx, itemIdx, "description", e.target.value)} />
                               </div>
                             </>
                           ) : (
                             <>
                               <div>
                                 <Label>Name</Label>
-                                <Input
-                                  value={item.name || ""}
-                                  placeholder="Enter Name"
-                                  onChange={(e) => updateSectionItem(idx, itemIdx, "name", e.target.value)}
-                                />
+                                <Input value={item.name || ""} placeholder="Enter Name" onChange={(e) => updateSectionItem(idx, itemIdx, "name", e.target.value)} />
                               </div>
                               <div>
                                 <Label>Description</Label>
-                                <Input
-                                  placeholder="Enter Description"
-                                  value={item.description || ""}
-                                  onChange={(e) => updateSectionItem(idx, itemIdx, "description", e.target.value)}
-                                />
-                              </div>
-                              {(section.type === "Select your scalp type" ||
-                                section.type === "Select your concern" ||
-                                section.type === "Select your age") && (
-                                  <div>
-                                    <Label>Link Product</Label>
-                                    <Select
-                                      value={item.product_id || "none"}
-                                      onValueChange={(val) =>
-                                        updateSectionItem(idx, itemIdx, "product_id", val === "none" ? null : val)
-                                      }
-                                    >
-                                      <SelectTrigger>
-                                        <SelectValue placeholder="Select product" />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        <SelectItem value="none">None</SelectItem>
-                                        {products
-                                          .filter((p) => p._id !== id)
-                                          .map((p) => (
-                                            <SelectItem key={p._id} value={p._id}>
-                                              {p.name}
-                                            </SelectItem>
-                                          ))}
-                                      </SelectContent>
-                                    </Select>
-                                    {item.product_id && item.product_id !== "none" && (
-                                      <p className="text-xs text-blue-600 mt-1">✓ Product linked</p>
-                                    )}
-                                  </div>
-                                )}
-                              <div>
-                                <Label>Image</Label>
-                                {item.image ? (
-                                  <div className="relative mt-1" style={{ width: 128, height: 128 }}>
-                                    <img
-                                      src={
-                                        item.image.startsWith("http")
-                                          ? item.image
-                                          : `${import.meta.env.VITE_API_URL_IMAGE}${item.image}`
-                                      }
-                                      alt="item"
-                                      className="w-full h-full object-contain rounded border"
-                                    />
-                                    <Button
-                                      type="button"
-                                      variant="destructive"
-                                      size="icon"
-                                      className="absolute -top-2 -right-2 h-6 w-6"
-                                      onClick={() => updateSectionItem(idx, itemIdx, "image", "")}
-                                    >
-                                      <X className="h-3 w-3" />
-                                    </Button>
-                                  </div>
-                                ) : (
-                                  <ImageUpload
-                                    value={null}
-                                    onChange={(val) => {
-                                      const url = typeof val === "string" ? val : Array.isArray(val) ? val[0] : "";
-                                      updateSectionItem(idx, itemIdx, "image", url || "");
-                                    }}
-                                    multiple={false}
-                                  />
-                                )}
+                                <Input value={item.description || ""} placeholder="Enter Description" onChange={(e) => updateSectionItem(idx, itemIdx, "description", e.target.value)} />
                               </div>
                             </>
                           )}
                         </div>
                       </div>
                     ))}
-
                     <div className="flex justify-center pt-2">
-                      <Button
-                        type="button"
-                        onClick={() => addSectionItem(idx)}
-                      >
+                      <Button type="button" onClick={() => addSectionItem(idx)}>
                         Add to product Extra List
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {section.type === "Image Banner Section" && (
+                  <div className="space-y-4">
+                    {(section.data.items || []).map((item: any, itemIdx: number) => (
+                      <div key={itemIdx} className="border rounded-lg p-4 bg-white">
+                        <div className="flex justify-between items-center mb-4">
+                          <h4>Banner {itemIdx + 1}</h4>
+                          <Button type="button" variant="destructive" size="sm" onClick={() => removeSectionItem(idx, itemIdx)}>
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <Label>Title</Label>
+                            <Input value={item.title || ""} placeholder="Enter title" onChange={(e) => updateSectionItem(idx, itemIdx, "title", e.target.value)} />
+                          </div>
+                          <div>
+                            <Label>Description</Label>
+                            <Input value={item.description || ""} placeholder="Enter description" onChange={(e) => updateSectionItem(idx, itemIdx, "description", e.target.value)} />
+                          </div>
+                        </div>
+                        <div className="mt-4">
+                          <Label>Banner Image</Label>
+                          <ImageUpload
+                            value={item.image || ""}
+                            onChange={(val) => {
+                              const image = typeof val === "string" ? val : Array.isArray(val) ? val[0] : "";
+                              updateSectionItem(idx, itemIdx, "image", image);
+                            }}
+                            multiple={false}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                    <div className="flex justify-center">
+                      <Button type="button" onClick={() => addSectionItem(idx)}>
+                        Add Banner
                       </Button>
                     </div>
                   </div>
@@ -863,15 +1675,11 @@ export default function ProductFormPage() {
             ))}
 
             <div className="relative flex justify-center">
-              <Button
-                type="button"
-                onClick={() => setShowSectionDropdown(!showSectionDropdown)}
-              >
+              <Button type="button" onClick={() => setShowSectionDropdown(!showSectionDropdown)}>
                 Add to product Page Section Builder
               </Button>
               {showSectionDropdown && (
-                <div
-                  className="absolute  mt-12 w-72 bg-white border border-gray-200 rounded shadow-lg z-50 max-h-80 overflow-y-auto">
+                <div className="absolute mt-12 w-72 bg-white border border-gray-200 rounded shadow-lg z-50 max-h-80 overflow-y-auto">
                   {SECTION_TYPES.map((sType) => (
                     <div
                       key={sType}
@@ -892,13 +1700,10 @@ export default function ProductFormPage() {
             {isEditMode ? "Update Product" : "Create Product"}
           </Button>
           <Link to={`${basePath}/products`} className="flex-1">
-            <Button type="button" variant="outline" className="w-full">
-              Cancel
-            </Button>
+            <Button type="button" variant="outline" className="w-full">Cancel</Button>
           </Link>
         </div>
       </form>
     </div>
   );
 }
-
